@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# `sed` command will grab each line in the "/tmp.auth"
+# `sed -n '1p' /tmp/.auth` will grab the first line
+# `sed -n '2p' /tmp/.auth` will grab the second line
+export IMAGE=$(sed -n '1p' /tmp/.auth)
+export BUILD_TAG=$(sed -n '2p' /tmp/.auth)
+export PASS=$(sed -n '3p' /tmp/.auth)
+
+# This will login to docker hub so that we can pull
+# the image "openjdk" which we called "maven-project"
+# that has our ".jar" files
+docker login -u hanzodarkria -p $PASS
+
+# Change to maven dir and run the docker compose file
+# which will pull, create and deploy the image to the 
+# container inside the production vm server.
+cd ~/maven && docker-compose up -d

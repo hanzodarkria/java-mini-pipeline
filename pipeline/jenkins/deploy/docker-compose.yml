@@ -1,0 +1,13 @@
+version: '3'
+services:
+  maven:
+    # What it means here that if docker cannot find it locally, then it will
+    # download it from docker hub using the "hanzodarkria" that was on the 
+    # deploy.sh file
+    image: hanzodarkria/$IMAGE:$BUILD_TAG
+    container_name: maven-app
+
+  
+# Note: For real life application we don't deploy container using this instead we're gonna use like 
+# swarm or kubernetes. For now we just use this 'docker-compose.yml' which is gonna be located on the
+# product server

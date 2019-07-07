@@ -1,0 +1,88 @@
+pipeline {
+
+    agent any
+    
+    environment {
+        PASS = credentials('registry-pass') 
+        // This is newly added. Instead of just looking for the ssh-key file in "/opt/prod" in the 
+        // deploy stage, we'll just using the jenkins to do that for us
+        // Below is the ID of the credential "prod-user"
+        PROD_SSH_KEY = 'a8185828-2d29-4450-8b41-d0eba2532d43'
+    }
+
+    stages {
+
+        stage('Build') {
+            // This line `./jenkins/build/mvn.sh mvn -B -DskipTests clean package`
+            // 1. This will create and run the image maven which will create a anonymous temporary 
+            // container. 
+            // 2. After creating, it will mount the volume java-app where it has the java files and 
+            // the ".pom" file which will be use by maven for building the ".jar" file
+            // 3. Then this is will run the maven command tht will package/build up our java files 
+            // and create a ".jar" file
+
+            // This line `./jenkins/build/build.sh`
+            // 1. This will copy all the ".jar" files from our mounted volume which is
+            // located at '/java-app/target/' directory where the build files is located after
+            // maven excuted.
+            // 2. This will go in to the directory "jenkins/build/" which will run docker compose file
+            // that will create an image and container with a custom name called "maven-project" using
+            // the  "openjdk:8-jre-alpine" image from docker hub.
+            // 3. After that, this will create an "/app" directory, copy that ".jar" files and rename it
+            // in "openjdk" container, and then finally run the ".jar" file.
+            steps {
+                sh '''
+                    ./jenkins/build/mvn.sh mvn -B -DskipTests clean package
+                    ./jenkins/build/build.sh
+                '''
+            }
+
+            post {
+                success {
+                   archiveArtifacts artifacts: 'java-app/target/*.jar', fingerprint: true
+                }
+            }
+        }
+
+        stage('Test') {
+            // Same us above, this will create and run a maven image which will create a container, run 
+            // a `mvn test` which will create the dir "surefie-reports" which has the ".xml" files
+            steps {
+                sh './jenkins/test/mvn.sh mvn test'
+            }
+
+            post {
+                always {
+                    junit 'java-app/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('Push') {
+            // This will push the image created "maven-project" to the docker my own docker hub
+            steps {
+                sh './jenkins/push/push.sh'
+            }
+        }
+
+        stage('Deploy') {
+            // Question is how do transfer the environment variable to the remote machine?
+            // This will copy files from jenkins local to the production vm server which will pull the 
+            // image that we just push to the docker hub, create that image and deploy it in a 
+            // containerize environment. This can be done using aws, kubernetes or swarm later on
+            steps {
+                // At first it's only this, execute the "deploy.sh" file where it will do "scp" and load
+                // the "ssh key" file so that it can "scp" and "ssh"
+                // sh './jenkins/deploy/deploy.sh'
+
+                // This is for prevent that manual loading of "ssh key" by using "sshagent" from Jenkins
+                // plugin. Before it comes to this, we need to install the "SSH Agent" plugin. The array
+                // here is necessary for the credentials and I just load the "PROD_SSH_KEY" and it needs
+                // to be in double-quote(")
+                sshagent(credentials : ["${PROD_SSH_KEY}"]) {
+                    sh './jenkins/deploy/deploy.sh'
+                }
+            }
+        }
+    }
+}

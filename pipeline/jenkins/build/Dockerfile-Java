@@ -1,0 +1,12 @@
+# This the image that will be use for hosting the ".jar" files and run it
+FROM openjdk:8-jre-alpine
+
+# Where creating an "/app" directory inside of this container using "openjdk" image
+RUN mkdir /app
+
+# We copy all ".jar" file in the current directory to the container direcotry inside the "/app"
+# and rename it as "app.jar"
+COPY *.jar /app/app.jar
+
+# And finally run the ".jar" file
+CMD java -jar /app/app.jar
